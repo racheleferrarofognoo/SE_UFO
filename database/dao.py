@@ -1,57 +1,59 @@
 from database.DB_connect import DBConnect
 from model.state import State
+
+
 class DAO:
     @staticmethod
-    def get_all_years():
+    def get_anno():
         conn = DBConnect.get_connection()
 
         result = []
 
         cursor = conn.cursor(dictionary=True)
-        query = """ select distinct year(s_datetime) as year
-                    from sighting  """
+        query = """SELECT DISTINCT YEAR(s.s_datetime) as anno
+                    FROM sighting s 
+                    WHERE YEAR(s.s_datetime) >= 1910 AND YEAR(s.s_datetime) <= 2010
+                    ORDER BY anno ASC"""
 
         cursor.execute(query)
 
         for row in cursor:
-            result.append(row["year"])
+            result.append(row["anno"])
 
         cursor.close()
         conn.close()
-        return result #lista di anni (interi)
+        return result
+
 
     @staticmethod
-    def get_shapes(year):
+    def get_all_shapes(anno):
         conn = DBConnect.get_connection()
 
         result = []
 
         cursor = conn.cursor(dictionary=True)
-        query = """ select distinct shape as shape
-                    from sighting 
-                    where year(s_datetime) = %s
-                    AND shape IS NOT NULL
-                    AND shape <> ''
-                    order by shape
-                    """
+        query = """SELECT DISTINCT s.shape 
+                    FROM sighting s 
+                    WHERE YEAR(s.s_datetime)=%s AND s.shape IS NOT NULL AND s.shape <> '' """
 
-        cursor.execute(query, (year,))
+        cursor.execute(query,(anno,))
 
         for row in cursor:
-            result.append(row["shape"])
+            result.append(row['shape'])
 
         cursor.close()
         conn.close()
-        return result #lista di forme nell'anno scelto
+        return result
 
     @staticmethod
-    def get_all_states():
+    def get_states():
         conn = DBConnect.get_connection()
 
         result = []
 
         cursor = conn.cursor(dictionary=True)
-        query = """ select * from state"""
+        query = """SELECT *
+                   FROM state s """
 
         cursor.execute(query)
 
@@ -60,47 +62,49 @@ class DAO:
 
         cursor.close()
         conn.close()
-        return result #nodi
+        return result
 
     @staticmethod
-    def get_neighbors():
+    def get_states_by_anno(anno,forma):
         conn = DBConnect.get_connection()
 
-        result = []
+        result = {}
 
         cursor = conn.cursor(dictionary=True)
-        query = """select state1, state2 from neighbor"""
+        query = """SELECT s.state , count(*) as conteggio
+                    FROM sighting s 
+                    WHERE YEAR(s.s_datetime)=%s AND s.shape=%s
+                    group  by s.state """
 
-        cursor.execute(query)
-
-        for row in cursor:
-            result.append((row["state1"],row["state2"]))
-
-        cursor.close()
-        conn.close()
-        return result #lista di tuple con connessioni
-
-    @staticmethod
-    def get_edges(year, shape):
-        conn = DBConnect.get_connection()
-        result = []
-        cursor = conn.cursor(dictionary=True)
-        query = """ SELECT n.state1 AS st1,
-                           n.state2 AS st2, 
-                           COUNT(*) as N
-                    FROM sighting s , neighbor n 
-                    WHERE year(s.s_datetime) = %s
-                          AND s.shape = %s
-                          AND (s.state = n.state1 OR s.state = n.state2)
-                          and n.state1 < n.state2
-                    GROUP BY st1 , st2 """
-
-        cursor.execute(query, (year, shape))
+        cursor.execute(query, (anno, forma))
 
         for row in cursor:
-            result.append((row['st1'], row['st2'], row["N"]))
+            result[row["state"]] = row["conteggio"]
 
         cursor.close()
         conn.close()
         return result
+
+    @staticmethod
+    def get_archi():
+        conn = DBConnect.get_connection()
+
+        result = []
+
+        cursor = conn.cursor(dictionary=True)
+        query = """SELECT state1 as s1, state2 as s2
+                    FROM neighbor n
+                    WHERE state1<state2 """
+
+        cursor.execute(query)
+
+        for row in cursor:
+            result.append(row)
+
+        cursor.close()
+        conn.close()
+        return result
+
+
+
 
